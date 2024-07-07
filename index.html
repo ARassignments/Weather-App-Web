@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Weather App | AR Assignments</title>
+        <link rel="shortcut icon" href="images/logo.png">
+        <link rel="stylesheet" href="style.css">
+        <link rel="stylesheet" href="css/default.css">
+    </head>
+    <body>
+        <div class="wrapper">
+            <div class="loadingContainer"></div>
+        </div>
+        <div class="container">
+            <marquee>Weather App</marquee>
+            <div class="group">
+                <div class="inputGroup">
+                    <section>
+                        <h2 class="title">Weather App with user location</h2>
+                        <div class="datalabel"
+                            data-label="city name here...">
+                            <input type="text"
+                                placeholder="city name here..."
+                                class="cityName"
+                                onkeypress="return (event.charCode > 64 && event.charCode < 91) || (event.charCode > 96 && event.charCode < 123) || (event.charCode == 32)"
+                                maxlength="30">
+                        </div>
+                        <button class="searchBtn">submit</button>
+                        <div class="weatherContainer">
+                            <div class="col" style="height: 100%;">
+                                <div class="weatherItem">
+                                    <a class="currentLocation" onclick="currentLocation()"><img src="images/target.svg" alt=""></a>
+                                    <img src="images/animated/01d.svg" alt="" draggable="false" id="weatherImage">
+                                    <h1 id="temp">--</h1>
+                                    <p id="weatherStatus">--</p>
+                                    <div class="divider"></div>
+                                    <div class="row">
+                                        <img src="images/location.svg" alt="" draggable="false">
+                                        <span id="cityName">--</span>
+                                    </div>
+                                    <div class="row">
+                                        <img src="images/calandar.svg" alt="" draggable="false">
+                                        <span id="date">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="item">
+                                    <img src="images/animated/wind-speed.svg" alt="">
+                                    <div class="content">
+                                        <span>wind speed</span>
+                                        <span id="windspeed">--</span>
+                                    </div>
+                                </div>
+                                <div class="item">
+                                    <img src="images/animated/pressure.svg" alt="">
+                                    <div class="content">
+                                        <span>pressure</span>
+                                        <span id="pressure">--</span>
+                                    </div>
+                                </div>
+                                <div class="item">
+                                    <img src="images/animated/sunrise.svg" alt="">
+                                    <div class="content">
+                                        <span>sunrise</span>
+                                        <span id="sunrise">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="item">
+                                    <img src="images/animated/humidity.svg" alt="">
+                                    <div class="content">
+                                        <span>humidity</span>
+                                        <span id="humidity">--</span>
+                                    </div>
+                                </div>
+                                <div class="item">
+                                    <img src="images/animated/visibility.svg" alt="">
+                                    <div class="content">
+                                        <span>visibility</span>
+                                        <span id="visibility">--</span>
+                                    </div>
+                                </div>
+                                <div class="item">
+                                    <img src="images/animated/sunset.svg" alt="">
+                                    <div class="content">
+                                        <span>sunset</span>
+                                        <span id="sunset">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </body>
+    <script src="js/sweetalert2.min.js"></script>
+    <script>
+        const Toast = Swal.mixin({
+            toast: true,
+            position: "top-end",
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.onmouseenter = Swal.stopTimer;
+                toast.onmouseleave = Swal.resumeTimer;
+            }
+        });
+        // initialize the html element
+        let cityName = document.querySelector(".cityName");
+        let searchBtn = document.querySelector(".searchBtn");
+        let weatherImage = document.querySelector("#weatherImage");
+        let locationPosition = "";
+
+        // get the current location on window load
+        window.onload = () => {
+            if (navigator.geolocation) {
+                preloader("on");
+                navigator.geolocation.getCurrentPosition((pos) => {
+                    locationPosition = pos;
+                    fetchWeather(false);
+                }, ()=>{
+                    showError("Geolocation is not available");
+                    preloader("off");
+                });
+            } else {
+                showError("Geolocation is not supported by this browser.");
+                preloader("off");
+            }
+        };
+
+        // if search button is clicked then search results
+        searchBtn.onclick = () => {
+            preloader('on');
+            if (cityName.value.trim() == "") {
+                Toast.fire({
+                    icon: "error",
+                    title: `City Name is required!!!`
+                });
+                preloader("off");
+            } else {
+                fetchWeather(true);
+            }
+        };
+
+        // Load current location weather data by the default weather button
+        function currentLocation(){
+            preloader('on');
+            if(locationPosition == ""){
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition((pos) => {
+                    locationPosition = pos;
+                    preloader("on");
+                    fetchWeather(false);
+                    }, ()=>{
+                        showError("Geolocation is not available");
+                        preloader("off");
+                    });
+                } else {
+                    showError("Geolocation is not supported by this browser.");
+                    preloader("off");
+                }
+            } else {
+                fetchWeather(false);
+            }
+        }
+
+        // Get weather from the location and with search parameters
+        async function fetchWeather(status) {
+        let apiKey = "403351bfa3b253b400c28fb3920b180d"; // Replace with your API key
+        if (status == false) {
+            let latitude = locationPosition.coords.latitude;
+            let longitude = locationPosition.coords.longitude;
+            let apiUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${apiKey}&units=metric`;
+            let response = await fetch(apiUrl);
+            let data = await response.json();
+            preloader("off");
+            document.querySelector("#cityName").innerHTML = data.name;
+            document.querySelector("#humidity").innerHTML = data.main.humidity+"%";
+            document.querySelector("#pressure").innerHTML = data.main.pressure+" hPa";
+            document.querySelector("#windspeed").innerHTML = data.wind.speed+" km/h";
+            let sunriseDate = new Date(data.sys.sunrise*1000);
+            let sunrise = `${sunriseDate.getHours().toString().padStart(2,'0')}:${sunriseDate.getMinutes().toString().padStart(2,'0')}`;
+            document.querySelector("#sunrise").innerHTML = sunrise;
+            let sunsetDate = new Date(data.sys.sunset*1000);
+            let sunset = `${sunsetDate.getHours().toString().padStart(2,'0')}:${sunsetDate.getMinutes().toString().padStart(2,'0')}`;
+            document.querySelector("#sunset").innerHTML = sunset;
+            document.querySelector("#visibility").innerHTML = (data.visibility/1000)+" km";
+            let date = new Date(data.dt*1000);
+            let monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            let dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            document.querySelector("#date").innerHTML = `${date.getDate().toString().padStart(2,'0')} ${monthNames[date.getMonth()]} ${dayNames[date.getDay()]}`;
+            document.querySelector("#temp").innerHTML = Math.round(data.main.temp)+"°C";
+            document.querySelector("#weatherStatus").innerHTML = data.weather[0].description;
+
+            if (data.weather[0].main == "Clouds") {
+                weatherImage.src = "images/animated/04d.svg";
+            } else if (data.weather[0].main == "Clear") {
+                weatherImage.src = "images/animated/01d.svg";
+            } else if (data.weather[0].main == "Mist") {
+                weatherImage.src = "images/animated/02d.svg";
+            } else if (data.weather[0].main == "Drizzle") {
+                weatherImage.src = "images/animated/10d.svg";
+            } else if (data.weather[0].main == "Rain") {
+                weatherImage.src = "images/animated/09d.svg";
+            } else if (data.weather[0].main == "Thunderstorm") {
+                weatherImage.src = "images/animated/11d.svg";
+            } else if (data.weather[0].main == "Snow") {
+                weatherImage.src = "images/animated/13d.svg";
+            }
+            Toast.fire({
+                icon: "success",
+                title: `Data Loaded Successfully!!!`
+            });
+        } else if (status == true) {
+            let apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${cityName.value.trim()}&appid=${apiKey}&units=metric`;
+            let response = await fetch(apiUrl);
+            let data = await response.json();
+            preloader("off");
+            // Check if the response contains 404
+            if(data.cod == "404"){
+                Toast.fire({
+                    icon: "error",
+                    title: "City is not Found!!!"
+                });
+            } else {
+                document.querySelector("#cityName").innerHTML = data.name;
+                document.querySelector("#humidity").innerHTML = data.main.humidity+"%";
+                document.querySelector("#pressure").innerHTML = data.main.pressure+" hPa";
+                document.querySelector("#windspeed").innerHTML = data.wind.speed+" km/h";
+                let sunriseDate = new Date(data.sys.sunrise*1000);
+                let sunrise = `${sunriseDate.getHours().toString().padStart(2,'0')}:${sunriseDate.getMinutes().toString().padStart(2,'0')}`;
+                document.querySelector("#sunrise").innerHTML = sunrise;
+                let sunsetDate = new Date(data.sys.sunset*1000);
+                let sunset = `${sunsetDate.getHours().toString().padStart(2,'0')}:${sunsetDate.getMinutes().toString().padStart(2,'0')}`;
+                document.querySelector("#sunset").innerHTML = sunset;
+                document.querySelector("#visibility").innerHTML = (data.visibility/1000)+" km";
+                let date = new Date(data.dt*1000);
+                let monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                let dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                document.querySelector("#date").innerHTML = `${date.getDate().toString().padStart(2,'0')} ${monthNames[date.getMonth()]} ${dayNames[date.getDay()]}`;
+                document.querySelector("#temp").innerHTML = Math.round(data.main.temp)+"°C";
+                document.querySelector("#weatherStatus").innerHTML = data.weather[0].description;
+    
+                if (data.weather[0].main == "Clouds") {
+                    weatherImage.src = "images/animated/04d.svg";
+                } else if (data.weather[0].main == "Clear") {
+                    weatherImage.src = "images/animated/01d.svg";
+                } else if (data.weather[0].main == "Mist") {
+                    weatherImage.src = "images/animated/02d.svg";
+                } else if (data.weather[0].main == "Drizzle") {
+                    weatherImage.src = "images/animated/10d.svg";
+                } else if (data.weather[0].main == "Rain") {
+                    weatherImage.src = "images/animated/09d.svg";
+                } else if (data.weather[0].main == "Thunderstorm") {
+                    weatherImage.src = "images/animated/11d.svg";
+                } else if (data.weather[0].main == "Snow") {
+                    weatherImage.src = "images/animated/13d.svg";
+                }
+                Toast.fire({
+                    icon: "success",
+                    title: `Data Loaded Successfully!!!`
+                });
+                cityName.value = "";
+            }
+        }
+        }
+
+        // Check error message
+        function showError(error) {
+            Toast.fire({
+                icon: "error",
+                title: error
+            });
+        }
+        
+        // only for preloader
+        function preloader(status){
+            if(status == "on"){
+                document.querySelector(".loadingContainer").classList.add("active");
+            } else if(status == "off"){
+                document.querySelector(".loadingContainer").classList.remove("active");
+            }
+        }
+    </script>
+</html>
